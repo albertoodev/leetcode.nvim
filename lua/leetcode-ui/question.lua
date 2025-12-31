@@ -13,14 +13,16 @@ local log = require("leetcode.logger")
 ---@param content string
 ---@return string
 local function as_comment(content, lang_slug)
-    local utils = require("leetcode.utils")
-    local comment = utils.get_lang(lang_slug).comment or "#"
-    local lines = vim.split(content, "\n")
-    for i, line in ipairs(lines) do
-        lines[i] = comment .. " " .. line
+    local lang_utils = require("leetcode.utils")
+    local comment = lang_utils.get_lang(lang_slug).comment or "#"
+    local lines = type(content) == "table" and content or vim.split(content, "\n")
+    local res = {}
+    for _, line in ipairs(lines) do
+        table.insert(res, comment .. " " .. line)
     end
     return table.concat(lines, "\n")
 end
+
 ---@alias lc.editor.section "imports" | "code"
 
 ---@class lc.ui.Question
@@ -33,7 +35,6 @@ end
 ---@field cache lc.cache.Question
 ---@field reset boolean
 local Question = Object("LeetQuestion")
-
 ---@param raw? boolean
 function Question:snippet(raw)
     local snippets = self.q.code_snippets ~= vim.NIL and self.q.code_snippets or {}
@@ -82,6 +83,10 @@ function Question:path()
     local lang = utils.get_lang(self.lang)
     local alt = lang.alt and ("." .. lang.alt) or ""
 
+    local difficulty = self.q.difficulty:lower()
+    local diff_dir = config.storage.home:joinpath(difficulty)
+    diff_dir:mkdir()
+
     -- handle legacy file names first
     local fn_legacy = --
         ("%s.%s-%s.%s"):format(self.q.frontend_id, self.q.title_slug, lang.slug, lang.ft)
@@ -92,7 +97,7 @@ function Question:path()
     end
 
     local fn = ("%s.%s%s.%s"):format(self.q.frontend_id, self.q.title_slug, alt, lang.ft)
-    self.file = config.storage.home:joinpath(fn)
+    self.file = diff_dir:joinpath(fn)
     local existed = self.file:exists()
 
     if not existed then
@@ -255,18 +260,21 @@ end
 ---@param code string
 function Question:injector(code)
     local inject = config.user.injector[self.lang] or {}
+    local description_text = plain_parser(self.q.content)
+    local commented_desc = as_comment(description_text, self.lang)
+    local parts = { commented_desc }
 
-    local parts = { self:editor_section(code, "code") }
+    local imports = self:inject_imports()
+    if imports and self.lang ~= "python3" then
+        table.insert(parts, self:editor_section(table.concat(imports, "\n"), "imports"))
+    end
 
     local before = self:inject(true)
     if before then
-        table.insert(parts, 1, before)
+        table.insert(parts, before)
     end
 
-    local imports = self:inject_imports()
-    if imports then
-        table.insert(parts, 1, self:editor_section(table.concat(imports, "\n"), "imports"))
-    end
+    table.insert(parts, self:editor_section(code, "code"))
 
     local after = self:inject(false)
     if after then
