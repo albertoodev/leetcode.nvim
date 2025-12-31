@@ -2,6 +2,7 @@ local Description = require("leetcode-ui.split.description")
 local Console = require("leetcode-ui.layout.console")
 local Info = require("leetcode-ui.popup.info")
 local Object = require("nui.object")
+local plain_parser = require("leetcode.parser.plain")
 
 local api_question = require("leetcode.api.question")
 local utils = require("leetcode.utils")
@@ -9,6 +10,17 @@ local ui_utils = require("leetcode-ui.utils")
 local config = require("leetcode.config")
 local log = require("leetcode.logger")
 
+---@param content string
+---@return string
+local function as_comment(content, lang_slug)
+    local utils = require("leetcode.utils")
+    local comment = utils.get_lang(lang_slug).comment or "#"
+    local lines = vim.split(content, "\n")
+    for i, line in ipairs(lines) do
+        lines[i] = comment .. " " .. line
+    end
+    return table.concat(lines, "\n")
+end
 ---@alias lc.editor.section "imports" | "code"
 
 ---@class lc.ui.Question
