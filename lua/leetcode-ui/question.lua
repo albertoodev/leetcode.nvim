@@ -3,6 +3,7 @@ local Console = require("leetcode-ui.layout.console")
 local Info = require("leetcode-ui.popup.info")
 local Object = require("nui.object")
 local plain_parser = require("leetcode.parser.plain")
+local Path = require("plenary.path")
 
 local api_question = require("leetcode.api.question")
 local utils = require("leetcode.utils")
@@ -82,9 +83,10 @@ end
 function Question:path()
     local lang = utils.get_lang(self.lang)
     local alt = lang.alt and ("." .. lang.alt) or ""
-
+    local lang_dir = config.storage.home:joinpath(lang.slug)
+    lang_dir:mkdir()
     local difficulty = self.q.difficulty:lower()
-    local diff_dir = config.storage.home:joinpath(difficulty)
+    local diff_dir = lang_dir:joinpath(difficulty)
     diff_dir:mkdir()
 
     -- handle legacy file names first
